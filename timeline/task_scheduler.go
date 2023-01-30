@@ -144,14 +144,14 @@ func (s *taskScheduler) AfterFunc(d time.Duration,
 				//保存值
 				observer.panicValue = panicValue
 			}
-			for _, eachHook := range completeOpts {
-				eachHook(observer)
-			}
 		}()
 		//触发回调
 		if callback != nil {
 			err := callback(&taskItem)
 			observer.err = err
+		}
+		for _, eachHook := range completeOpts {
+			eachHook(observer)
 		}
 	}).SetKey(taskItem.key)
 
