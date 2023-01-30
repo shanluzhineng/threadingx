@@ -92,6 +92,10 @@ func (o *taskSchedulerObserver) PanicValue() interface{} {
 }
 
 func (o *taskSchedulerObserver) Stop() bool {
+	if o.timer == nil {
+		o.host.schedulerObserverList.Del(o.GetKey())
+		return true
+	}
 	result := o.timer.Stop()
 	if result {
 		o.host.schedulerObserverList.Del(o.GetKey())
