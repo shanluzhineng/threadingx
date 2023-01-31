@@ -40,11 +40,11 @@ func NewTaskItem() *TaskItem {
 
 type ITaskScheduler interface {
 	//多久后执行回调
-	AfterFunc(d time.Duration, taskItem TaskItem, callback func(*TaskItem) error, completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver
+	AfterFunc(d time.Duration, taskItem *TaskItem, callback func(*TaskItem) error, completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver
 
 	// 调度一个函数，此函数按照interval时间定期执行
 	//返回用于此任务的调度key
-	SchedulerFunc(interval time.Duration, taskItem TaskItem, callback func(*TaskItem) error, completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver
+	SchedulerFunc(interval time.Duration, taskItem *TaskItem, callback func(*TaskItem) error, completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver
 
 	//停止指定的调度项,如果key不存在，则返回false
 	StopScheduler(key string) bool
@@ -142,13 +142,13 @@ func NewTaskScheduler() ITaskScheduler {
 
 // 调度一个函数
 func (s *taskScheduler) AfterFunc(d time.Duration,
-	taskItem TaskItem,
+	taskItem *TaskItem,
 	callback func(*TaskItem) error,
 	completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver {
 
 	taskItem.key = s.newKey()
 	observer := newTaskSchedulerObserver(s)
-	observer.taskItem = &taskItem
+	observer.taskItem = taskItem
 
 	t := s.timingWheel.AfterFunc(d, func() {
 		//执行完成后删除key
@@ -162,7 +162,7 @@ func (s *taskScheduler) AfterFunc(d time.Duration,
 		}()
 		//触发回调
 		if callback != nil {
-			err := callback(&taskItem)
+			err := callback(taskItem)
 			observer.err = err
 		}
 		for _, eachHook := range completeOpts {
@@ -178,7 +178,7 @@ func (s *taskScheduler) AfterFunc(d time.Duration,
 // 调度一个函数，此函数按照interval时间定期执行
 // 返回用于此任务的调度key
 func (s *taskScheduler) SchedulerFunc(interval time.Duration,
-	taskItem TaskItem,
+	taskItem *TaskItem,
 	callback func(*TaskItem) error,
 	completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver {
 
@@ -189,7 +189,7 @@ func (s *taskScheduler) SchedulerFunc(interval time.Duration,
 		interval: interval,
 	}
 	observer := newTaskSchedulerObserver(s)
-	observer.taskItem = &taskItem
+	observer.taskItem = taskItem
 	observer.scheduler = scheduler
 	t := s.timingWheel.ScheduleFuncWith(scheduler, taskItem.key, func() {
 		defer func() {
@@ -201,7 +201,7 @@ func (s *taskScheduler) SchedulerFunc(interval time.Duration,
 		}()
 		//触发回调
 		if callback != nil {
-			err := callback(&taskItem)
+			err := callback(taskItem)
 			observer.err = err
 		}
 		for _, eachHook := range completeOpts {

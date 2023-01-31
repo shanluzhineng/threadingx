@@ -42,7 +42,7 @@ func NewSceneTimerService() ISceneTimerService {
 // 启动一个新的计时器(一次性触发的)
 func (s *sceneTimerService) StartNewOneTimer(delayInterval time.Duration, timerCallback func(*TaskItem) error) string {
 
-	observer := s.taskScheduler.AfterFunc(delayInterval, *NewTaskItem(), timerCallback)
+	observer := s.taskScheduler.AfterFunc(delayInterval, NewTaskItem(), timerCallback)
 	return observer.GetKey()
 }
 
@@ -51,7 +51,7 @@ func (s *sceneTimerService) StartNewOneTimerWithData(delayInterval time.Duration
 
 	taskItem := NewTaskItem()
 	taskItem.Value = data
-	observer := s.taskScheduler.AfterFunc(delayInterval, *taskItem, timerCallback)
+	observer := s.taskScheduler.AfterFunc(delayInterval, taskItem, timerCallback)
 	return observer.GetKey()
 }
 
@@ -59,7 +59,7 @@ func (s *sceneTimerService) StartNewOneTimerWithData(delayInterval time.Duration
 func (s *sceneTimerService) StartRecurNewTimer(timerInterval time.Duration, timerCallback func(*TaskItem) error) string {
 
 	//增加到调度队列中
-	observer := s.taskScheduler.SchedulerFunc(timerInterval, *NewTaskItem(), timerCallback)
+	observer := s.taskScheduler.SchedulerFunc(timerInterval, NewTaskItem(), timerCallback)
 	if observer == nil {
 		return ""
 	}
