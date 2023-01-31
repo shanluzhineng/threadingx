@@ -13,10 +13,20 @@ import (
 
 type timeIntervalScheduler struct {
 	interval time.Duration
+
+	stopped bool
 }
 
 func (s *timeIntervalScheduler) Next(prev time.Time) time.Time {
+	if s.stopped {
+		//已经停止
+		return time.Time{}
+	}
 	return prev.Add(s.interval)
+}
+
+func (s *timeIntervalScheduler) stop() {
+	s.stopped = true
 }
 
 type TaskItem struct {
@@ -53,8 +63,9 @@ type ITaskSchedulerObserver interface {
 }
 
 type taskSchedulerObserver struct {
-	timer *timingwheel.Timer
-	host  *taskScheduler
+	timer     *timingwheel.Timer
+	host      *taskScheduler
+	scheduler *timeIntervalScheduler
 
 	taskItem   *TaskItem
 	err        error
@@ -92,13 +103,17 @@ func (o *taskSchedulerObserver) PanicValue() interface{} {
 }
 
 func (o *taskSchedulerObserver) Stop() bool {
+	if o.scheduler != nil {
+		o.scheduler.stop()
+	}
+
 	if o.timer == nil {
-		o.host.schedulerObserverList.Del(o.GetKey())
+		o.host.schedulerObserverList.Del(o.taskItem.key)
 		return true
 	}
 	result := o.timer.Stop()
 	if result {
-		o.host.schedulerObserverList.Del(o.GetKey())
+		o.host.schedulerObserverList.Del(o.taskItem.key)
 	}
 	return result
 }
@@ -175,6 +190,7 @@ func (s *taskScheduler) SchedulerFunc(interval time.Duration,
 	}
 	observer := newTaskSchedulerObserver(s)
 	observer.taskItem = &taskItem
+	observer.scheduler = scheduler
 	t := s.timingWheel.ScheduleFuncWith(scheduler, taskItem.key, func() {
 		defer func() {
 			if panicValue := recover(); panicValue != nil {
@@ -205,7 +221,7 @@ func (s *taskScheduler) StopScheduler(key string) bool {
 	if !ok {
 		return false
 	}
-	observer := observerValue.(ITaskSchedulerObserver)
+	observer := observerValue.(*taskSchedulerObserver)
 	observer.Stop()
 	return true
 }
