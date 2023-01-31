@@ -21,3 +21,9 @@ func Recover(cleanups ...func()) {
 		log.Printf("%s\n%s", msg, debug.Stack())
 	}
 }
+
+func SafeCallFunc(f func(), cleanups ...func()) {
+	defer Recover(cleanups...)
+
+	f()
+}

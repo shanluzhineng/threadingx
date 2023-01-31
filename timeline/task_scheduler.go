@@ -1,11 +1,11 @@
 package timeline
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/abmpio/threadingx/collection"
+	"github.com/abmpio/threadingx/rescue"
 	"github.com/abmpio/threadingx/timingwheel"
 
 	"github.com/abmpio/threadingx/stringx"
@@ -40,11 +40,16 @@ func NewTaskItem() *TaskItem {
 
 type ITaskScheduler interface {
 	//多久后执行回调
-	AfterFunc(d time.Duration, taskItem *TaskItem, callback func(*TaskItem) error, completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver
+	AfterFunc(interval time.Duration, taskItem *TaskItem, callback func(*TaskItem) error, completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver
 
-	// 调度一个函数，此函数按照interval时间定期执行
+	// 调度一个函数，此函数按照interval时间定期执行,这个定时器的回调是可能会存在着并行执行的
 	//返回用于此任务的调度key
 	SchedulerFunc(interval time.Duration, taskItem *TaskItem, callback func(*TaskItem) error, completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver
+
+	// 调度一个函数，此函数按照interval时间定期执行,这个定时器的回调是不会存在着并行执行的
+	// 下一个定时的触发机制是在这个回调执行完成后再开始计时
+	//返回用于此任务的调度key
+	SchedulerFuncOneByOne(interval time.Duration, taskItem *TaskItem, callback func(*TaskItem) error, completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver
 
 	//停止指定的调度项,如果key不存在，则返回false
 	StopScheduler(key string) bool
@@ -56,8 +61,7 @@ type ITaskSchedulerObserver interface {
 	GetTaskItemValue() interface{}
 	//如果回调返回了error,用来获取其error
 	Error() error
-	//如果回调panic了,这里用来获取panic的值
-	PanicValue() interface{}
+	AddCompleteCallbacks(callbacks ...func(ITaskSchedulerObserver))
 
 	Stop() bool
 }
@@ -67,9 +71,9 @@ type taskSchedulerObserver struct {
 	host      *taskScheduler
 	scheduler *timeIntervalScheduler
 
-	taskItem   *TaskItem
-	err        error
-	panicValue interface{}
+	completeCallbackList []func(ITaskSchedulerObserver)
+	taskItem             *TaskItem
+	err                  error
 }
 
 var _ ITaskSchedulerObserver = (*taskSchedulerObserver)(nil)
@@ -77,7 +81,8 @@ var _ ITaskSchedulerObserver = (*taskSchedulerObserver)(nil)
 func newTaskSchedulerObserver(host *taskScheduler) *taskSchedulerObserver {
 
 	return &taskSchedulerObserver{
-		host: host,
+		host:                 host,
+		completeCallbackList: make([]func(ITaskSchedulerObserver), 0),
 	}
 }
 
@@ -97,11 +102,6 @@ func (o *taskSchedulerObserver) Error() error {
 	return o.err
 }
 
-// 如果回调panic了,这里用来获取panic的值
-func (o *taskSchedulerObserver) PanicValue() interface{} {
-	return o.panicValue
-}
-
 func (o *taskSchedulerObserver) Stop() bool {
 	if o.scheduler != nil {
 		o.scheduler.stop()
@@ -116,6 +116,19 @@ func (o *taskSchedulerObserver) Stop() bool {
 		o.host.schedulerObserverList.Del(o.taskItem.key)
 	}
 	return result
+}
+
+func (o *taskSchedulerObserver) AddCompleteCallbacks(callbacks ...func(ITaskSchedulerObserver)) {
+	if callbacks == nil || len(callbacks) <= 0 {
+		return
+	}
+	o.completeCallbackList = append(o.completeCallbackList, callbacks...)
+}
+
+func (o *taskSchedulerObserver) notifyCompleted() {
+	for _, eachCallback := range o.completeCallbackList {
+		eachCallback(o)
+	}
 }
 
 // #endregion
@@ -140,38 +153,40 @@ func NewTaskScheduler() ITaskScheduler {
 
 // #region ITaskScheduler Members
 
+func (s *taskScheduler) _afterFunc(interval time.Duration, taskItem *TaskItem, callback func(*TaskItem) error, observer *taskSchedulerObserver) {
+	if len(taskItem.key) <= 0 {
+		taskItem.key = s.newKey()
+	}
+	t := s.timingWheel.AfterFunc(interval, func() {
+		defer func() {
+			//执行完成后删除key
+			s.schedulerObserverList.Del(taskItem.key)
+		}()
+		//触发回调
+		rescue.SafeCallFunc(func() {
+			if callback != nil {
+				err := callback(taskItem)
+				observer.err = err
+			}
+		})
+		rescue.SafeCallFunc(observer.notifyCompleted)
+	}).SetKey(taskItem.key)
+	observer.timer = t
+	//增加到待执行的列表中
+	s.schedulerObserverList.Set(taskItem.key, observer)
+}
+
 // 调度一个函数
-func (s *taskScheduler) AfterFunc(d time.Duration,
+func (s *taskScheduler) AfterFunc(interval time.Duration,
 	taskItem *TaskItem,
 	callback func(*TaskItem) error,
 	completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver {
 
-	taskItem.key = s.newKey()
 	observer := newTaskSchedulerObserver(s)
 	observer.taskItem = taskItem
+	observer.AddCompleteCallbacks(completeOpts...)
 
-	t := s.timingWheel.AfterFunc(d, func() {
-		//执行完成后删除key
-		s.schedulerObserverList.Del(taskItem.key)
-		defer func() {
-			if panicValue := recover(); panicValue != nil {
-				fmt.Print(panicValue)
-				//保存值
-				observer.panicValue = panicValue
-			}
-		}()
-		//触发回调
-		if callback != nil {
-			err := callback(taskItem)
-			observer.err = err
-		}
-		for _, eachHook := range completeOpts {
-			eachHook(observer)
-		}
-	}).SetKey(taskItem.key)
-
-	//增加到待执行的列表中
-	s.schedulerObserverList.Set(t.GetKey(), observer)
+	s._afterFunc(interval, taskItem, callback, observer)
 	return observer
 }
 
@@ -191,27 +206,40 @@ func (s *taskScheduler) SchedulerFunc(interval time.Duration,
 	observer := newTaskSchedulerObserver(s)
 	observer.taskItem = taskItem
 	observer.scheduler = scheduler
+	observer.AddCompleteCallbacks(completeOpts...)
+
 	t := s.timingWheel.ScheduleFuncWith(scheduler, taskItem.key, func() {
-		defer func() {
-			if panicValue := recover(); panicValue != nil {
-				fmt.Print(panicValue)
-				//保存值
-				observer.panicValue = panicValue
-			}
-		}()
 		//触发回调
-		if callback != nil {
-			err := callback(taskItem)
-			observer.err = err
-		}
-		for _, eachHook := range completeOpts {
-			eachHook(observer)
-		}
+		rescue.SafeCallFunc(func() {
+			if callback != nil {
+				err := callback(taskItem)
+				observer.err = err
+			}
+		})
+		rescue.SafeCallFunc(observer.notifyCompleted)
 	})
 	if t == nil {
 		return nil
 	}
 	s.schedulerObserverList.Set(taskItem.key, observer)
+	return observer
+}
+
+func (s *taskScheduler) SchedulerFuncOneByOne(interval time.Duration,
+	taskItem *TaskItem,
+	callback func(*TaskItem) error,
+	completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver {
+
+	observer := newTaskSchedulerObserver(s)
+	observer.taskItem = taskItem
+	observer.AddCompleteCallbacks(completeOpts...)
+	compCallback := func(ITaskSchedulerObserver) {
+		//再次启动
+		s._afterFunc(interval, taskItem, callback, observer)
+	}
+	observer.AddCompleteCallbacks(compCallback)
+
+	s._afterFunc(interval, taskItem, callback, observer)
 	return observer
 }
 

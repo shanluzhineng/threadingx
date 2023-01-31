@@ -59,7 +59,7 @@ func (s *sceneTimerService) StartNewOneTimerWithData(delayInterval time.Duration
 func (s *sceneTimerService) StartRecurNewTimer(timerInterval time.Duration, timerCallback func(*TaskItem) error) string {
 
 	//增加到调度队列中
-	observer := s.taskScheduler.SchedulerFunc(timerInterval, NewTaskItem(), timerCallback)
+	observer := s.taskScheduler.SchedulerFuncOneByOne(timerInterval, NewTaskItem(), timerCallback)
 	if observer == nil {
 		return ""
 	}
