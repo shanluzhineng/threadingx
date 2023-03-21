@@ -62,6 +62,7 @@ type ITaskSchedulerObserver interface {
 	//如果回调返回了error,用来获取其error
 	Error() error
 	AddCompleteCallbacks(callbacks ...func(ITaskSchedulerObserver))
+	IsStopped() bool
 
 	Stop() bool
 }
@@ -100,6 +101,10 @@ func (o *taskSchedulerObserver) GetTaskItemValue() interface{} {
 // 如果回调返回了error,用来获取其error
 func (o *taskSchedulerObserver) Error() error {
 	return o.err
+}
+
+func (o *taskSchedulerObserver) IsStopped() bool {
+	return o.scheduler == nil || o.scheduler.stopped
 }
 
 func (o *taskSchedulerObserver) Stop() bool {
@@ -230,10 +235,22 @@ func (s *taskScheduler) SchedulerFuncOneByOne(interval time.Duration,
 	callback func(*TaskItem) error,
 	completeOpts ...func(ITaskSchedulerObserver)) ITaskSchedulerObserver {
 
+	if len(taskItem.key) <= 0 {
+		taskItem.key = s.newKey()
+	}
+	scheduler := &timeIntervalScheduler{
+		interval: interval,
+	}
 	observer := newTaskSchedulerObserver(s)
 	observer.taskItem = taskItem
+	observer.scheduler = scheduler
 	observer.AddCompleteCallbacks(completeOpts...)
-	compCallback := func(ITaskSchedulerObserver) {
+
+	compCallback := func(to ITaskSchedulerObserver) {
+		//check IsStopped
+		if to.IsStopped() {
+			return
+		}
 		//再次启动
 		s._afterFunc(interval, taskItem, callback, observer)
 	}
