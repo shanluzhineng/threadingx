@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/abmpio/threadingx/collection"
-	"github.com/abmpio/threadingx/rescue"
+	"github.com/abmpio/threadingx/threading"
 	"github.com/abmpio/threadingx/timingwheel"
 
 	"github.com/abmpio/threadingx/stringx"
@@ -168,13 +168,13 @@ func (s *taskScheduler) _afterFunc(interval time.Duration, taskItem *TaskItem, c
 			s.schedulerObserverList.Del(taskItem.key)
 		}()
 		//触发回调
-		rescue.SafeCallFunc(func() {
+		threading.SafeCallFunc(func() {
 			if callback != nil {
 				err := callback(taskItem)
 				observer.err = err
 			}
 		})
-		rescue.SafeCallFunc(observer.notifyCompleted)
+		threading.SafeCallFunc(observer.notifyCompleted)
 	}).SetKey(taskItem.key)
 	observer.timer = t
 	//增加到待执行的列表中
@@ -215,13 +215,13 @@ func (s *taskScheduler) SchedulerFunc(interval time.Duration,
 
 	t := s.timingWheel.ScheduleFuncWith(scheduler, taskItem.key, func() {
 		//触发回调
-		rescue.SafeCallFunc(func() {
+		threading.SafeCallFunc(func() {
 			if callback != nil {
 				err := callback(taskItem)
 				observer.err = err
 			}
 		})
-		rescue.SafeCallFunc(observer.notifyCompleted)
+		threading.SafeCallFunc(observer.notifyCompleted)
 	})
 	if t == nil {
 		return nil

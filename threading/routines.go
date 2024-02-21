@@ -3,6 +3,7 @@ package threading
 
 import (
 	"bytes"
+	"context"
 	"runtime"
 	"strconv"
 
@@ -12,6 +13,18 @@ import (
 // GoSafe runs the given fn using another goroutine, recovers if fn panics.
 func GoSafe(fn func()) {
 	go RunSafe(fn)
+}
+
+// GoSafe runs the given fn using another goroutine, recovers if fn panics.
+func GoSafeWithCleanup(fn func(), cleanupsFn ...func()) {
+	defer rescue.Recover(cleanupsFn...)
+
+	fn()
+}
+
+// GoSafeCtx runs the given fn using another goroutine, recovers if fn panics with ctx.
+func GoSafeCtx(ctx context.Context, fn func()) {
+	go RunSafeCtx(ctx, fn)
 }
 
 // RoutineId is only for debug, never use it in production.
@@ -31,4 +44,17 @@ func RunSafe(fn func()) {
 	defer rescue.Recover()
 
 	fn()
+}
+
+// RunSafeCtx runs the given fn, recovers if fn panics with ctx.
+func RunSafeCtx(ctx context.Context, fn func()) {
+	defer rescue.RecoverCtx(ctx)
+
+	fn()
+}
+
+func SafeCallFunc(f func(), cleanups ...func()) {
+	defer rescue.Recover(cleanups...)
+
+	f()
 }

@@ -2,6 +2,7 @@
 package rescue
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"runtime/debug"
@@ -22,8 +23,13 @@ func Recover(cleanups ...func()) {
 	}
 }
 
-func SafeCallFunc(f func(), cleanups ...func()) {
-	defer Recover(cleanups...)
+// RecoverCtx is used with defer to do cleanup on panics.
+func RecoverCtx(ctx context.Context, cleanups ...func()) {
+	for _, cleanup := range cleanups {
+		cleanup()
+	}
 
-	f()
+	if p := recover(); p != nil {
+		log.Printf("%+v\n%s", p, debug.Stack())
+	}
 }
