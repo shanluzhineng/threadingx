@@ -40,10 +40,17 @@ func RoutineId() uint64 {
 }
 
 // RunSafe runs the given fn, recovers if fn panics.
-func RunSafe(fn func()) {
-	defer rescue.Recover()
+func RunSafe(fn func(), cleanups ...func()) {
+	defer rescue.Recover(cleanups...)
 
 	fn()
+}
+
+// RunSafe runs the given fn, recovers if fn panics.
+func RunSafeAs[v any](fn func() v, cleanups ...func()) v {
+	defer rescue.Recover(cleanups...)
+
+	return fn()
 }
 
 // RunSafeCtx runs the given fn, recovers if fn panics with ctx.
