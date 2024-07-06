@@ -5,9 +5,9 @@ package service
 import (
 	"log"
 
-	"github.com/abmpio/threadingx/proc"
-	"github.com/abmpio/threadingx/syncx"
-	"github.com/abmpio/threadingx/threading"
+	"github.com/shanluzhineng/threadingx/proc"
+	"github.com/shanluzhineng/threadingx/syncx"
+	"github.com/shanluzhineng/threadingx/threading"
 )
 
 type (

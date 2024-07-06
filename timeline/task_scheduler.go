@@ -4,11 +4,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/abmpio/threadingx/collection"
-	"github.com/abmpio/threadingx/threading"
-	"github.com/abmpio/threadingx/timingwheel"
+	"github.com/shanluzhineng/threadingx/collection"
+	"github.com/shanluzhineng/threadingx/threading"
+	"github.com/shanluzhineng/threadingx/timingwheel"
 
-	"github.com/abmpio/threadingx/stringx"
+	"github.com/shanluzhineng/threadingx/stringx"
 )
 
 type timeIntervalScheduler struct {

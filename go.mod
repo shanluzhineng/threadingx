@@ -1,3 +1,3 @@
-module github.com/abmpio/threadingx
+module github.com/shanluzhineng/threadingx
 
-go 1.19
+go 1.20

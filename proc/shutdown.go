@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/abmpio/threadingx/threading"
+	"github.com/shanluzhineng/threadingx/threading"
 )
 
 const (

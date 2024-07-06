@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/abmpio/threadingx/lang"
+	"github.com/shanluzhineng/threadingx/lang"
 )
 
 // errTimeout indicates a timeout.

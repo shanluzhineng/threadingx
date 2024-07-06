@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/abmpio/threadingx/rescue"
+	"github.com/shanluzhineng/threadingx/rescue"
 )
 
 // GoSafe runs the given fn using another goroutine, recovers if fn panics.

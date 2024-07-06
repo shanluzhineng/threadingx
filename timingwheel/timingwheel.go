@@ -6,7 +6,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/abmpio/threadingx/timingwheel/delayqueue"
+	"github.com/shanluzhineng/threadingx/timingwheel/delayqueue"
 )
 
 // TimingWheel is an implementation of Hierarchical Timing Wheels.

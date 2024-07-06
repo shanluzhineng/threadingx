@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/abmpio/threadingx/collection"
+	"github.com/shanluzhineng/threadingx/collection"
 )
 
 const (

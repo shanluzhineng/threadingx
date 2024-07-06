@@ -6,11 +6,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/abmpio/threadingx/lang"
-	"github.com/abmpio/threadingx/proc"
-	"github.com/abmpio/threadingx/syncx"
-	"github.com/abmpio/threadingx/threading"
-	"github.com/abmpio/threadingx/timex"
+	"github.com/shanluzhineng/threadingx/lang"
+	"github.com/shanluzhineng/threadingx/proc"
+	"github.com/shanluzhineng/threadingx/syncx"
+	"github.com/shanluzhineng/threadingx/threading"
+	"github.com/shanluzhineng/threadingx/timex"
 )
 
 const idleRound = 10
